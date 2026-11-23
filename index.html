@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#004a99">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <title>Menu USSD RDC</title>
+
+    <style>
+        /* --- STYLE GLOBAL --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: #333; }
+        
+        .phone-container {
+            width: 100%;
+            max-width: 400px;
+            height: 100vh;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        /* --- OVERLAY FLOU --- */
+        .bg-blur {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            z-index: 10;
+            display: flex; justify-content: center; align-items: center;
+            padding: 20px;
+        }
+
+        /* --- MODAL DU MENU --- */
+        .ussd-modal {
+            background: #fff;
+            width: 100%;
+            border-radius: 4px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        /* --- TEXTE DU MENU --- */
+        .menu-content {
+            font-size: 16px;
+            line-height: 1.5;
+            color: #000;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            font-family: inherit;
+        }
+
+        /* --- INPUT --- */
+        .input-area {
+            display: flex;
+            align-items: center;
+            border-bottom: 2px solid #00897B;
+            padding-bottom: 5px;
+            margin-bottom: 20px;
+        }
+        .cursor {
+            width: 2px; height: 20px;
+            background: #00897B;
+            animation: blink 1s step-end infinite;
+            margin-right: 2px;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+        
+        .ussd-input {
+            border: none;
+            outline: none;
+            font-size: 16px;
+            width: 100%;
+            color: #333;
+            background: transparent;
+        }
+
+        /* --- BOUTONS --- */
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 20px;
+        }
+        .btn {
+            background: none;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+        .btn-cancel { color: #004a99; }
+        .btn-submit { color: #004a99; }
+        .btn:active { background: #e2e8f0; }
+
+        /* --- ERREUR --- */
+        .error-msg { color: #dc3545; font-size: 13px; margin-bottom: 10px; display: none; }
+    </style>
+
+    <!-- MANIFEST GÉNÉRÉ AUTOMATIQUEMENT VIA BLOB -->
+    <script>
+        // Génération du manifest.json à la volée
+        const manifest = {
+            "name": "Menu USSD RDC",
+            "short_name": "Menu",
+            "start_url": "./index.html",
+            "display": "standalone",
+            "background_color": "#ffffff",
+            "theme_color": "#004a99",
+            "orientation": "portrait",
+            "icons": [{
+                "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwNGE5OSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1zaXplPSI0MCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuMzVlbSI+8J+TiDwvdGV4dD48L3N2Zz4=",
+                "sizes": "192x192",
+                "type": "image/svg+xml"
+            }]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = manifestURL;
+        document.head.appendChild(link);
+    </script>
+</head>
+<body>
+
+<div class="phone-container">
+    <div class="bg-blur">
+        <div class="ussd-modal">
+            <div class="menu-content" id="menu-display"></div>
+            <div class="error-msg" id="error-msg">Veuillez saisir un choix valide.</div>
+            
+            <div class="input-area">
+                <div class="cursor"></div>
+                <input type="number" class="ussd-input" id="ussd-input" placeholder="" autocomplete="off" autofocus>
+            </div>
+            
+            <div class="actions">
+                <button class="btn btn-cancel" onclick="resetMenu()">ANNULER</button>
+                <button class="btn btn-submit" onclick="processInput()">ENVOYER</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // =================================================================
+    // DÉFINITION DE L'ARBRE À MENU (Modifiez cette partie librement)
+    // =================================================================
+    const ussdTree = {
+        "main": {
+            text: "1- Activation Forfaits\n2- Balance\n3- Services\n4- AfriMoney\n5- Mon Compte\n6- Offre Exclusive\n7- Taux du jour\n8- AFRICELL FIDELITE",
+            choices: {
+                "1": "forfaits", "2": "balance", "3": "services", "4": "afrimoney",
+                "5": "compte", "6": "offre", "7": "taux", "8": "fidelite"
+            }
+        },
+        "forfaits": {
+            text: "1- Forfait Appel\n2- Forfait Internet\n3- Forfait Mixte\n0- Retour",
+            choices: { "1": "forfait_appel", "2": "forfait_internet", "3": "forfait_mixte", "0": "main" }
+        },
+        "forfait_appel": { text: "1- 500 FC pour 10 min\n2- 1000 FC pour 30 min\n0- Retour", choices: { "0": "forfaits" } },
+        "balance": { text: "Votre balance est de 1 500 FC.\n\n0- Retour", choices: { "0": "main" } },
+        "services": { text: "1- Service Client\n2- Activer Roaming\n0- Retour", choices: { "1": "client", "2": "roaming", "0": "main" } },
+        "client": { text: "Appelez le 100 pour le service client.\n\n0- Retour", choices: { "0": "services" } },
+        "roaming": { text: "Roaming activé avec succès!\n\n0- Retour", choices: { "0": "services" } },
+        "afrimoney": { text: "1- Transfert\n2- Payer Facture\n0- Retour", choices: { "1": "transfert", "2": "facture", "0": "main" } },
+        "transfert": { text: "Entrez le numéro du destinataire:\n\n(Simulation: tapez 1 pour envoyer 1000FC)\n0- Retour", choices: { "1": "transfert_ok", "0": "afrimoney" } },
+        "transfert_ok": { text: "Transfert de 1000 FC effectué!\n\n0- Menu Principal", choices: { "0": "main" } },
+        "facture": { text: "Facture payée!\n\n0- Menu Principal", choices: { "0": "main" } },
+        "compte": { text: "Nom: Jean Dupont\nNuméro: +243 97 000 00 00\nSolde: 1500 FC\n\n0- Retour", choices: { "0": "main" } },
+        "offre": { text: "Offre exclusive: 5Go à 5000 FC!\n\n1- Acheter\n0- Retour", choices: { "1": "offre_ok", "0": "main" } },
+        "offre_ok": { text: "Félicitations! 5Go ajoutés.\n\n0- Menu Principal", choices: { "0": "main" } },
+        "taux": { text: "Taux du jour: 1 USD = 2800 FC\n\n0- Retour", choices: { "0": "main" } },
+        "fidelite": { text: "Vous avez 150 points de fidélité.\n\n0- Retour", choices: { "0": "main" } }
+    };
+
+    // Variable d'état
+    let currentNodeId = "main";
+    const menuDisplay = document.getElementById('menu-display');
+    const inputField = document.getElementById('ussd-input');
+    const errorMsg = document.getElementById('error-msg');
+
+    // Initialisation
+    function renderMenu(nodeId) {
+        const node = ussdTree[nodeId];
+        if (!node) return;
+        currentNodeId = nodeId;
+        
+        menuDisplay.textContent = node.text;
+        inputField.value = '';
+        errorMsg.style.display = 'none';
+        inputField.focus();
+    }
+
+    // Traitement de la saisie
+    function processInput() {
+        const val = inputField.value.trim();
+        const node = ussdTree[currentNodeId];
+        
+        if (!val) return;
+
+        if (node.choices && node.choices[val]) {
+            renderMenu(node.choices[val]);
+        } else {
+            errorMsg.style.display = 'block';
+            inputField.value = '';
+            inputField.focus();
+        }
+    }
+
+    // Annuler / Recommencer
+    function resetMenu() {
+        renderMenu("main");
+    }
+
+    // Entrée clavier
+    inputField.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') processInput();
+    });
+
+    renderMenu("main");
+
+    // =================================================================
+    // SERVICE WORKER INTÉGRÉ (Généré automatiquement)
+    // =================================================================
+    if ('serviceWorker' in navigator) {
+        const swCode = `
+            const CACHE_NAME = 'ussd-cache-v1';
+            self.addEventListener('install', event => {
+                self.skipWaiting();
+                event.waitUntil(
+                    caches.open(CACHE_NAME).then(cache => cache.addAll(['./index.html']))
+                );
+            });
+            self.addEventListener('activate', event => {
+                event.waitUntil(clients.claim());
+            });
+            self.addEventListener('fetch', event => {
+                event.respondWith(
+                    caches.match(event.request).then(response => response || fetch(event.request))
+                );
+            });
+        `;
+        const swBlob = new Blob([swCode], { type: 'application/javascript' });
+        const swURL = URL.createObjectURL(swBlob);
+        navigator.serviceWorker.register(swURL).catch(err => console.log('SW Error:', err));
+    }
+</script>
+
+</body>
+</html>
